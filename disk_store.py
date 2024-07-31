@@ -21,7 +21,7 @@ Typical usage example:
 """
 import os.path
 import time
-import typing
+from typing import Tuple
 
 from format import encode_kv, decode_kv, decode_header
 
@@ -64,19 +64,43 @@ class DiskStorage:
     """
 
     def __init__(self, file_name: str = "data.db"):
-        raise NotImplementedError
+        # Open file
+        self.file_name = file_name
+        self.file = open(file_name, "a+b")
+        # Todo: What if file already exists? What if file doesn't exist?
+        # Al principi no fa com al paper. Primera versió es solament amb un arxi
+        self.key_dir: dict[str, Tuple[int, int]] = {}
+        self.index = 0
 
     def set(self, key: str, value: str) -> None:
-        raise NotImplementedError
+        size, dataload = encode_kv(int(time.time()), key, value)
+        self._write(dataload)
+        self.key_dir[key] = (self.index, size)
+        self.index += size
+        print(self.key_dir, self.index)
 
     def get(self, key: str) -> str:
-        raise NotImplementedError
+        idx, size = self.key_dir[key]
+        # get line of index i in self.file
+        self.file.seek(idx, 0)
+        dataload = self.file.read(size)
+        _, _, v = decode_kv(dataload)
+        #self.file.seek(self.index, 0)
+        return v
 
     def close(self) -> None:
-        raise NotImplementedError
+        self.file.flush()
+        os.fsync(self.file.fileno())
+        self.file.close()
 
     def __setitem__(self, key: str, value: str) -> None:
         return self.set(key, value)
 
     def __getitem__(self, item: str) -> str:
         return self.get(item)
+
+    def _write(self, data: bytes) -> None:
+        print(data)
+        self.file.write(data)
+        self.file.flush()
+        os.fsync(self.file.fileno())
